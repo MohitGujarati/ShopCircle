@@ -30,8 +30,10 @@ yarn-error.*
 .DS_Store
 *.pem
 
-# local env files
-.env*.local
+# local env files (SECRETS — Supabase & Stripe keys. Never commit these.)
+.env
+.env.*
+!.env.example
 
 # typescript
 *.tsbuildinfo
@@ -41,3 +43,15 @@ example
 # generated native folders
 /ios
 /android
+
+# ==========================================================================
+# Project docs policy:
+# Only CLAUDE.md is shared (so every developer stays on the same page).
+# Every other .md (AGENTS.md, the roadmap, notes, READMEs) stays local.
+# ==========================================================================
+*.md
+!CLAUDE.md
+
+# Claude local/personal working files (roadmap, design inspiration, etc.)
+.claude/*.local.*
+.claude/inspiration.local/
