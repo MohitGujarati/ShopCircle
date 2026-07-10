@@ -1,6 +1,8 @@
+import { navigate, Routes } from '@/app/navigation/nav';
 import Ionicons from "@expo/vector-icons/Ionicons";
 import { Tabs } from "expo-router";
 import { StyleSheet, View } from "react-native";
+
 
 import { Strings } from "@/constants/strings";
 import { Colors, Radius, Spacing } from "@/constants/theme";
@@ -29,8 +31,8 @@ export default function TabsLayout() {
 
         headerLeft: () => (
           <View style={styles.headerIcon}>
-            <Ionicons name="add" size={30} color={Colors.textPrimary}
-              onPress={() => console.log("Create Post")} />
+            <Ionicons name="camera-outline" size={30} color={Colors.textPrimary}
+              onPress={() => navigate(Routes.CAMERA)} />
           </View>
         ),
         headerRight: () => (
@@ -67,11 +69,9 @@ export default function TabsLayout() {
 
       <Tabs.Screen
         name="explore"
-
         options={{
           headerShown: false,
           tabBarLabel: () => null,
-
           title: Strings.tabs.explore,
           tabBarIcon: ({ color, size, focused }) => (
             <Ionicons name={focused ? "search" : "search-outline"} size={size} color={color} />
@@ -82,6 +82,7 @@ export default function TabsLayout() {
       <Tabs.Screen
         name="create"
         options={{
+          headerShown: false,
           title: Strings.tabs.create,
           tabBarLabel: () => null, // the red button is enough — no text label
           tabBarIcon: () => (

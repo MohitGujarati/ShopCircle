@@ -1,3 +1,4 @@
+import { navigate, Routes } from '@/app/navigation/nav';
 import { Colors, Radius, Spacing, Typography } from '@/constants/theme';
 import { Ionicons } from '@expo/vector-icons';
 import { useState } from 'react';
@@ -74,7 +75,10 @@ const ProfileTabs = () => {
                 </View>
                 <Text style={styles.emptyTitle}>{activeTab.emptyTitle}</Text>
                 <Text style={styles.emptySubtitle}>{activeTab.emptySubtitle}</Text>
-                <TouchableOpacity style={styles.ctaButton} activeOpacity={0.85}>
+                <TouchableOpacity style={styles.ctaButton} activeOpacity={0.85}
+
+                    onPress={() => navigate(Routes.CREATE)}
+                >
                     <Text style={styles.ctaText}>{activeTab.emptyCta}</Text>
                 </TouchableOpacity>
             </View>

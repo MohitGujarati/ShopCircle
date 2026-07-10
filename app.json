@@ -33,6 +33,27 @@
           "image": "./assets/images/splash-icon.png",
           "imageWidth": 76
         }
+      ],
+      [
+        "expo-camera",
+        {
+          "cameraPermission": "Allow $(PRODUCT_NAME) to use your camera to take product photos.",
+          "recordAudioAndroid": false
+        }
+      ],
+      [
+        "expo-image-picker",
+        {
+          "photosPermission": "Allow $(PRODUCT_NAME) to access your photos so you can post them.",
+          "microphonePermission": false
+        }
+      ],
+      [
+        "expo-media-library",
+        {
+          "savePhotosPermission": "Allow $(PRODUCT_NAME) to save the photos you take.",
+          "photosPermission": "Allow $(PRODUCT_NAME) to access your photos so you can post them."
+        }
       ]
     ],
     "experiments": {

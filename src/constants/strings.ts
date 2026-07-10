@@ -93,14 +93,39 @@ export const Strings = {
     editProfile: "Edit profile",
   },
 
+
+
   // Create / publish product screen (built later).
   create: {
     title: "New product",
+    // Top tab bar inside the Create screen.
+    tabs: {
+      post: "Post",
+      product: "Product",
+    },
     productName: "Product name",
     price: "Price",
     description: "Description",
     addPhoto: "Add photo",
     publish: "Publish",
+  },
+
+  // Full-screen camera opened from the header camera icon.
+  camera: {
+    post: "Post",
+    retake: "Retake",
+    // Web has no phone camera to open, so we upload a file from the computer.
+    uploadTitle: "Upload a photo",
+    uploadBody: "Choose a product photo from your computer.",
+    choosePhoto: "Choose photo",
+    // Shown while the OS permission has been denied.
+    permissionTitle: "Camera access needed",
+    permissionBody: "ShopCircle needs your camera to take product photos.",
+    grantAccess: "Grant access",
+    // Errors surfaced via Alert.
+    captureFailed: "Could not take the photo. Please try again.",
+    saveFailed: "Photo taken, but it could not be saved to your gallery.",
+    galleryFailed: "Could not open your gallery. Please try again.",
   },
 
   // Auth & onboarding (built in Phase 4/5).

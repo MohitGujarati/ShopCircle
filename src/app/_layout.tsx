@@ -29,6 +29,12 @@ export default function RootLayout() {
   return (
     <Stack>
       <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
+      {/* Pushed over the tabs, so it hides the bottom tab bar. Sliding up from
+          the bottom is what makes it read as a camera rather than a page. */}
+      <Stack.Screen
+        name="camera"
+        options={{ headerShown: false, animation: "slide_from_bottom" }}
+      />
     </Stack>
   );
 }
