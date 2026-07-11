@@ -56,7 +56,7 @@ export default function TabsLayout() {
     >
 
       <Tabs.Screen
-        name="index"
+        name="home"
         options={{
           tabBarLabel: () => null,
           title: Strings.tabs.home,

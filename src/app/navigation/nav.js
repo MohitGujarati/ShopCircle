@@ -1,13 +1,17 @@
 import { router } from 'expo-router';
 
 export const Routes = {
-    HOME: '/',
+    // Home feed lives at /home so the root index route (/) is free to act as
+    // the auth gate that decides between /home and /login.
+    HOME: '/home',
     CREATE: '/create',
     // The Post tab specifically — a photo from the camera lands here.
     CREATE_POST: '/create/post-tab',
     PROFILE: '/profile',
     // Lives outside (tabs)/ so it covers the tab bar when open.
     CAMERA: '/camera',
+    LOGIN: '/login',
+    REGISTRATION: '/registration',
 };
 
 // 1) Plain navigation — just the destination.
@@ -30,6 +34,14 @@ export function navigateWithParams(to, params) {
 //    replaceWithParams(Routes.CREATE_POST, { photoUri })
 export function replaceWithParams(to, params) {
     router.replace({ pathname: to, params });
+}
+
+// 4) Replace the current screen with a new one (no back entry). Same idea as
+//    replaceWithParams but when you have no params — e.g. after signing in,
+//    Back should not return to the login screen.
+//    replace(Routes.HOME)
+export function replace(to) {
+    router.replace(to);
 }
 
 // Go back to the previous screen (like finish() / popping the back stack).

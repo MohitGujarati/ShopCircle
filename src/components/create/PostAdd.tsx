@@ -240,7 +240,6 @@ const styles = StyleSheet.create({
         marginBottom: 10,
         marginLeft: 5,
         marginRight: 5,
-
         color: Colors.text,
         paddingHorizontal: Spacing.xl,
         paddingVertical: Spacing.xl,

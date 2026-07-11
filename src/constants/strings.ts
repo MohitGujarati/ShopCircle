@@ -133,6 +133,30 @@ export const Strings = {
     continueWithGoogle: "Continue with Google",
     welcome: "Welcome to ShopCircle",
     signOut: "Sign out",
+
+    // Login screen.
+    loginTitle: "Welcome back",
+    loginSubtitle: "Sign in to keep shopping and sharing.",
+    signIn: "Sign in",
+    noAccount: "Don't have an account?",
+    signUp: "Sign up",
+
+    // Registration screen.
+    registerTitle: "Create your account",
+    registerSubtitle: "Join ShopCircle to discover and sell products.",
+    createAccount: "Create account",
+    haveAccount: "Already have an account?",
+
+    // Shared field labels / placeholders.
+    name: "Name",
+    namePlaceholder: "Jane Doe",
+    email: "Email",
+    emailPlaceholder: "you@example.com",
+    password: "Password",
+    passwordPlaceholder: "••••••••",
+
+    // Divider between form and Google button.
+    or: "or",
   },
 } as const;
 

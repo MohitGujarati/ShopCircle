@@ -1,8 +1,9 @@
 import { ScreenPlaceholder } from "@/components/screen-placeholder";
 import { Strings } from "@/constants/strings";
 
-// Home tab. File is named index.tsx so it's the group's DEFAULT route (opens
-// first). Becomes the product feed in Phase 3.
+// Home tab, served at /home. The root index.tsx is the auth gate at /, so the
+// feed needs its own URL to avoid two screens colliding on "/". Becomes the
+// product feed in Phase 3.
 export default function HomeScreen() {
   return (
     <ScreenPlaceholder
