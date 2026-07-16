@@ -1,4 +1,6 @@
+import { replace, Routes } from '@/app/navigation/nav';
 import { Colors, Radius, Spacing, Typography } from '@/constants/theme';
+import { useAuth } from '@/hooks/useAuth';
 import { Ionicons } from '@expo/vector-icons';
 import { Image, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import ProfileTabs from './ProfileTabs';
@@ -7,11 +9,21 @@ import ProfileTabs from './ProfileTabs';
 // TopBar — the row at the very top: username on the left, actions on the right.
 // ---------------------------------------------------------------------------
 const TopBar = ({ username }: { username: string }) => {
+    const { signOut } = useAuth();
+
+    // Sign out, then send the user to /login. We navigate explicitly because the
+    // auth gate that bounces logged-out users only runs at "/" — it isn't mounted
+    // while we're inside the tabs, so clearing the session alone wouldn't move us.
+    const handleLogout = async () => {
+        await signOut();
+        replace(Routes.LOGIN);
+    };
+
     return (
         <View style={styles.topBar}>
             <Text style={styles.topBarTitle}>{username}</Text>
             <View style={styles.topBarActions}>
-                <TouchableOpacity hitSlop={8}>
+                <TouchableOpacity hitSlop={8} onPress={handleLogout}>
                     <Ionicons name="git-compare-outline" size={26} color={Colors.text} />
                 </TouchableOpacity>
                 <TouchableOpacity hitSlop={8}>

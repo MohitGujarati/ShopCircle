@@ -138,8 +138,12 @@ export const Strings = {
     loginTitle: "Welcome back",
     loginSubtitle: "Sign in to keep shopping and sharing.",
     signIn: "Sign in",
+    signingIn: "Signing in…",
     noAccount: "Don't have an account?",
     signUp: "Sign up",
+
+    // Inline validation / error messages.
+    fillAllFields: "Please enter your email and password.",
 
     // Registration screen.
     registerTitle: "Create your account",
