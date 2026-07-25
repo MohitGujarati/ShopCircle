@@ -1,15 +1,8 @@
-import { ScreenPlaceholder } from "@/components/screen-placeholder";
-import { Strings } from "@/constants/strings";
+import HomeFeed from "@/components/home/HomeFeed";
 
 // Home tab, served at /home. The root index.tsx is the auth gate at /, so the
-// feed needs its own URL to avoid two screens colliding on "/". Becomes the
-// product feed in Phase 3.
+// feed needs its own URL to avoid two screens colliding on "/".
+// Route files stay thin: the feed UI lives in src/components/home/.
 export default function HomeScreen() {
-  return (
-    <ScreenPlaceholder
-      icon="home"
-      title={Strings.tabs.home}
-      subtitle="Your product feed will live here (Phase 3)."
-    />
-  );
+  return <HomeFeed />;
 }

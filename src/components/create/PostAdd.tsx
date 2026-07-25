@@ -1,15 +1,22 @@
+import { replace, Routes } from '@/app/navigation/nav';
 import { Strings } from '@/constants/strings';
 import { Colors, Radius, Spacing, Typography } from '@/constants/theme';
+import { useAuth } from '@/hooks/useAuth';
+import { supabase } from '@/lib/supabase';
 import { Feather, Ionicons, MaterialIcons } from '@expo/vector-icons';
 import { Image } from 'expo-image';
 import React, { useState } from 'react';
 import {
+    ActivityIndicator,
+    Alert,
+    Platform,
     SafeAreaView,
     ScrollView,
     StyleSheet,
     Switch,
     Text,
     TextInput,
+    ToastAndroid,
     TouchableOpacity, useWindowDimensions, View
 } from 'react-native';
 
@@ -82,8 +89,55 @@ const MenuItem = ({
 export default function PostAdd({ photoUri }: Props) {
     const { width } = useWindowDimensions();
     const isLargeScreen = width >= 768;
+    const { user } = useAuth();
     const [caption, setCaption] = useState("");
     const [isAiLabelEnabled, setIsAiLabelEnabled] = useState(false);
+    // Tracks the save so we can disable the button and show a spinner while the
+    // network request is in flight (avoids double-posting on a fast double tap).
+    const [saving, setSaving] = useState(false);
+
+    // Insert one row into the `posts` table (see supabase/posts_products.sql).
+    // We only send the fields the user filled in; the DB fills id, user_id,
+    // and created_at for us via its column defaults.
+
+
+    const handleShare = async () => {
+        if (saving) return;
+
+        if (!user) {
+            Alert.alert("Not signed in", "Please log in before sharing a post.");
+            return;
+        }
+        if (!photoUri) {
+            Alert.alert("Add a photo", "Pick or take a photo before sharing.");
+            return;
+        }
+
+        setSaving(true);
+        // .insert() writes the row; RLS on the table verifies user_id === auth.uid().
+        const { error } = await supabase.from("posts").insert({
+            image_url: photoUri,
+            caption: caption.trim(),
+            ai_label: isAiLabelEnabled,
+            // audience is hardcoded for now — the "Audience" menu row isn't wired up yet.
+            audience: "followers",
+        });
+        setSaving(false);
+
+        if (error) {
+            Alert.alert("Couldn't share", error.message);
+            return;
+        }
+
+        setCaption("");
+        setIsAiLabelEnabled(false);
+        replace(Routes.HOME);
+        ToastAndroid.show("Your post is live.", ToastAndroid.LONG);
+
+        if (Platform.OS === "web") {
+            alert("Your post is live.");
+        }
+    };
 
     return (
         <SafeAreaView style={styles.safeArea}>
@@ -185,8 +239,17 @@ export default function PostAdd({ photoUri }: Props) {
 
             {/* FIXED BOTTOM SHARE BUTTON */}
             <View style={styles.footer}>
-                <TouchableOpacity style={styles.shareButton} activeOpacity={0.8}>
-                    <Text style={styles.shareText}>Share</Text>
+                <TouchableOpacity
+                    style={[styles.shareButton, saving && styles.shareButtonDisabled]}
+                    activeOpacity={0.8}
+                    onPress={handleShare}
+                    disabled={saving}
+                >
+                    {saving ? (
+                        <ActivityIndicator color={Colors.onPrimary} />
+                    ) : (
+                        <Text style={styles.shareText}>Share</Text>
+                    )}
                 </TouchableOpacity>
             </View>
         </SafeAreaView>
@@ -339,6 +402,9 @@ const styles = StyleSheet.create({
         borderRadius: Radius.full,
         alignItems: "center",
         justifyContent: "center",
+    },
+    shareButtonDisabled: {
+        opacity: 0.6,
     },
     shareText: {
         ...Typography.labelBold,

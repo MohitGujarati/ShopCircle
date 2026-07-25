@@ -54,6 +54,18 @@ export const Strings = {
     trending: "Trending",
     create: "Create",
     emptyFollowing: "Follow some stores to see their products here.",
+    // Post card labels. Counts are added in the component, e.g.
+    // `${count} ${Strings.feed.likes}` → "12 likes".
+    likes: "likes",
+    comments: "comments",
+    viewAll: "View all",
+    empty: "No posts yet. Tap the + button to share your first one.",
+    loadFailed: "Couldn't load the feed.",
+    // Delete confirmation, shown from the ⋯ menu on your own posts.
+    delete: "Delete",
+    deleteTitle: "Delete post?",
+    deleteBody: "This can't be undone.",
+    deleteFailed: "Couldn't delete the post",
   },
 
   // Explore / discovery screen.
