@@ -2,6 +2,7 @@ import { replace, Routes } from '@/app/navigation/nav';
 import { Strings } from '@/constants/strings';
 import { Colors, Radius, Spacing, Typography } from '@/constants/theme';
 import { useAuth } from '@/hooks/useAuth';
+import { uploadImage } from '@/lib/storage';
 import { supabase } from '@/lib/supabase';
 import { Feather, Ionicons, MaterialIcons } from '@expo/vector-icons';
 import { Image } from 'expo-image';
@@ -114,28 +115,38 @@ export default function PostAdd({ photoUri }: Props) {
         }
 
         setSaving(true);
-        // .insert() writes the row; RLS on the table verifies user_id === auth.uid().
-        const { error } = await supabase.from("posts").insert({
-            image_url: photoUri,
-            caption: caption.trim(),
-            ai_label: isAiLabelEnabled,
-            // audience is hardcoded for now — the "Audience" menu row isn't wired up yet.
-            audience: "followers",
-        });
-        setSaving(false);
+        try {
+            // Upload FIRST: if this fails we never write a post row, so we can't end
+            // up with a post pointing at an image that doesn't exist.
+            const imageUrl = await uploadImage(photoUri, "posts", user.id);
 
-        if (error) {
-            Alert.alert("Couldn't share", error.message);
-            return;
-        }
+            // .insert() writes the row; RLS on the table verifies user_id === auth.uid().
+            const { error } = await supabase.from("posts").insert({
+                // The public Storage URL, not the local file:// path — that's what
+                // makes the photo visible on every device.
+                image_url: imageUrl,
+                caption: caption.trim(),
+                ai_label: isAiLabelEnabled,
+                // audience is hardcoded for now — the "Audience" menu row isn't wired up yet.
+                audience: "followers",
+            });
+            if (error) throw error;
 
-        setCaption("");
-        setIsAiLabelEnabled(false);
-        replace(Routes.HOME);
-        ToastAndroid.show("Your post is live.", ToastAndroid.LONG);
+            setCaption("");
+            setIsAiLabelEnabled(false);
+            replace(Routes.HOME);
 
-        if (Platform.OS === "web") {
-            alert("Your post is live.");
+            // ToastAndroid exists only on Android; calling it elsewhere throws.
+            if (Platform.OS === "android") {
+                ToastAndroid.show("Your post is live.", ToastAndroid.LONG);
+            } else if (Platform.OS === "web") {
+                alert("Your post is live.");
+            }
+        } catch (e) {
+            Alert.alert("Couldn't share", e instanceof Error ? e.message : String(e));
+        } finally {
+            // finally runs even when we threw, so the spinner can never get stuck on.
+            setSaving(false);
         }
     };
 
