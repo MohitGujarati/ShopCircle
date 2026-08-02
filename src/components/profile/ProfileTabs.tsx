@@ -2,7 +2,31 @@ import { navigate, Routes } from '@/app/navigation/nav';
 import { Colors, Radius, Spacing, Typography } from '@/constants/theme';
 import { Ionicons } from '@expo/vector-icons';
 import { useState } from 'react';
-import { StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+import { Image } from 'expo-image';
+import { FlatList, StyleSheet, Text, TouchableOpacity, useWindowDimensions, View } from 'react-native';
+
+// The two row shapes this screen renders. They live here, next to the component
+// that draws them, and ProfilePage imports them for its fetch — the presentational
+// component owns the contract for the data it needs.
+//
+// Field names match the DB columns exactly (posts_products.sql), so there's no
+// mapping layer to keep in sync.
+export type PostItem = {
+    id: string;
+    image_url: string | null;
+    created_at: string;
+};
+
+export type ProductItem = {
+    id: string;
+    image_url: string | null;
+    title: string;
+    // numeric(10,2) can come back from Postgres as a STRING ("499.00") — JS numbers
+    // can't represent every decimal exactly, so the driver plays it safe. Format it,
+    // don't do maths on it.
+    price: number | string;
+    created_at: string;
+};
 
 // 1️⃣ Describe every tab ONCE. The whole UI is generated from this array,
 //    so adding a 4th tab later is just one more object here.
@@ -36,13 +60,62 @@ const TABS = [
     },
 ] as const;
 
-const ProfileTabs = () => {
+// ---------------------------------------------------------------------------
+// Tile — one square cell of the grid. Shared by both tabs; a product just gets
+// a price pill on top, which is the only visual difference between them.
+// ---------------------------------------------------------------------------
+const Tile = ({ item, size }: { item: PostItem | ProductItem; size: number }) => {
+    // A product row has a `price`; a post row doesn't. Narrowing on the property
+    // itself means we don't have to pass the tab name down.
+    const price = 'price' in item ? item.price : null;
+
+    return (
+        <View style={[styles.tile, { width: size, height: size }]}>
+            {item.image_url ? (
+                <Image source={{ uri: item.image_url }} style={styles.tileImage} contentFit="cover" />
+            ) : (
+                // Older rows (and any failed upload) have no image.
+                <View style={[styles.tileImage, styles.tilePlaceholder]}>
+                    <Ionicons name="image-outline" size={22} color={Colors.textSecondary} />
+                </View>
+            )}
+
+            {price !== null && (
+                // Absolutely positioned inside the tile — same technique as the
+                // `addBadge` on the avatar in ProfilePage.
+                <View style={styles.pricePill}>
+                    <Text style={styles.priceText} numberOfLines={1}>₹{price}</Text>
+                </View>
+            )}
+        </View>
+    );
+};
+
+type Props = {
+    posts: PostItem[];
+    products: ProductItem[];
+};
+
+// This component is now PRESENTATIONAL: ProfilePage fetches the data and hands it
+// down, so there's one loading state and one refresh for the whole screen, and the
+// "posts" stat can't drift from the grid.
+const ProfileTabs = ({ posts, products }: Props) => {
     // 2️⃣ Remember which tab is selected. Seed from the array so state can never
     //    hold a key that doesn't exist (that was the earlier blank-content bug).
     const [activeKey, setActiveKey] = useState<string>(TABS[0].key);
 
     // 3️⃣ Look up the config for the active tab (drives the content area below).
     const activeTab = TABS.find((tab) => tab.key === activeKey) ?? TABS[0];
+
+    // 4️⃣ The rows for the active tab. `orders` has no table yet, so it's always
+    //    empty — that's why it keeps showing its empty state.
+    const items: (PostItem | ProductItem)[] =
+        activeKey === 'posts' ? posts : activeKey === 'products' ? products : [];
+
+    // 5️⃣ Square tiles, three per row. Measured from the screen instead of
+    //    hardcoded, so tablets and the web build stay square too.
+    const { width } = useWindowDimensions();
+    const tileSize = width / 3;
 
     return (
         <View style={styles.container}>
@@ -67,21 +140,34 @@ const ProfileTabs = () => {
                 })}
             </View>
 
-            {/* THE CONTENT — the active tab's empty state for now.
-          Later this becomes a FlatList of real products. */}
-            <View style={styles.content}>
-                <View style={styles.emptyIconCircle}>
-                    <Ionicons name={activeTab.emptyIcon} size={30} color={Colors.textSecondary} />
-                </View>
-                <Text style={styles.emptyTitle}>{activeTab.emptyTitle}</Text>
-                <Text style={styles.emptySubtitle}>{activeTab.emptySubtitle}</Text>
-                <TouchableOpacity style={styles.ctaButton} activeOpacity={0.85}
+            {/* THE CONTENT — a 3-column grid, or the tab's empty state when there's
+          nothing to draw. ListEmptyComponent renders INSTEAD of the rows, so the
+          empty state we already had isn't thrown away, it just moved in here. */}
+            <FlatList
+                // `key` forces a fresh list when you switch tabs. Without it the
+                // FlatList reuses its scroll position and measurements from the
+                // previous tab's data, which looks like a rendering glitch.
+                key={activeKey}
+                data={items}
+                keyExtractor={(item) => item.id}
+                numColumns={3}
+                renderItem={({ item }) => <Tile item={item} size={tileSize} />}
+                ListEmptyComponent={
+                    <View style={styles.content}>
+                        <View style={styles.emptyIconCircle}>
+                            <Ionicons name={activeTab.emptyIcon} size={30} color={Colors.textSecondary} />
+                        </View>
+                        <Text style={styles.emptyTitle}>{activeTab.emptyTitle}</Text>
+                        <Text style={styles.emptySubtitle}>{activeTab.emptySubtitle}</Text>
+                        <TouchableOpacity style={styles.ctaButton} activeOpacity={0.85}
 
-                    onPress={() => navigate(Routes.CREATE)}
-                >
-                    <Text style={styles.ctaText}>{activeTab.emptyCta}</Text>
-                </TouchableOpacity>
-            </View>
+                            onPress={() => navigate(Routes.CREATE)}
+                        >
+                            <Text style={styles.ctaText}>{activeTab.emptyCta}</Text>
+                        </TouchableOpacity>
+                    </View>
+                }
+            />
         </View>
     );
 };
@@ -108,6 +194,35 @@ const styles = StyleSheet.create({
         alignItems: 'center',
         paddingTop: Spacing.xxl + Spacing.lg,
         paddingHorizontal: Spacing.xl,
+    },
+
+    // Grid. The 1px padding on each tile is what creates the hairline gutter
+    // between cells — that gap is what makes it read as a grid rather than a
+    // collage. Width/height come from the screen, so they're set inline.
+    tile: {
+        padding: 1,
+    },
+    tileImage: {
+        flex: 1,
+        backgroundColor: Colors.surfaceMuted,
+    },
+    tilePlaceholder: {
+        alignItems: 'center',
+        justifyContent: 'center',
+    },
+    pricePill: {
+        position: 'absolute',
+        left: Spacing.xs,
+        bottom: Spacing.xs,
+        maxWidth: '85%',
+        backgroundColor: 'rgba(0,0,0,0.65)',
+        paddingHorizontal: Spacing.sm,
+        paddingVertical: 2,
+        borderRadius: Radius.full,
+    },
+    priceText: {
+        ...Typography.labelSm,
+        color: Colors.white,
     },
     emptyIconCircle: {
         width: 72,

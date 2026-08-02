@@ -1,9 +1,12 @@
 import { replace, Routes } from '@/app/navigation/nav';
 import { Colors, Radius, Spacing, Typography } from '@/constants/theme';
 import { useAuth } from '@/hooks/useAuth';
+import { supabase } from '@/lib/supabase';
 import { Ionicons } from '@expo/vector-icons';
-import { Image, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
-import ProfileTabs from './ProfileTabs';
+import { useFocusEffect } from 'expo-router';
+import { useCallback, useState } from 'react';
+import { ActivityIndicator, Image, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+import ProfileTabs, { PostItem, ProductItem } from './ProfileTabs';
 
 // ---------------------------------------------------------------------------
 // TopBar — the row at the very top: username on the left, actions on the right.
@@ -42,45 +45,66 @@ const Stat = ({ value, label }: { value: number; label: string }) => (
     </View>
 );
 
+// Mirrors the columns in public.profiles (see supabase/profiles.sql). We keep the
+// DB's snake_case names so there's no mapping layer to keep in sync, and every
+// field is nullable because that's the truth: only `name` is filled at signup —
+// username / avatar_url / bio stay null until an onboarding screen sets them.
 type ProfileData = {
-    username: string;
-    name: string;
-    avatarUrl: string;
-    posts: number;
-    followers: number;
-    following: number;
-    bio: string;
+    name: string | null;
+    username: string | null;
+    avatar_url: string | null;
+    bio: string | null;
 };
 
 // ---------------------------------------------------------------------------
 // ProfileDetails — avatar + stats, then name/bio, then action buttons.
 // ---------------------------------------------------------------------------
-const ProfileDetails = ({ profileData }: { profileData?: ProfileData }) => {
+const ProfileDetails = ({
+    profileData,
+    postCount,
+}: {
+    profileData?: ProfileData | null;
+    postCount: number;
+}) => {
     if (!profileData) return null;
 
-    const { name, avatarUrl, posts, followers, following, bio } = profileData;
+    const { name, avatar_url, bio } = profileData;
 
     return (
         <View style={styles.details}>
             {/* Row: avatar + stats */}
             <View style={styles.detailsRow}>
                 <View style={styles.avatarContainer}>
-                    <Image source={{ uri: avatarUrl }} style={styles.avatar} />
+                    {avatar_url ? (
+                        <Image source={{ uri: avatar_url }} style={styles.avatar} />
+                    ) : (
+                        // No avatar until onboarding uploads one — draw the first
+                        // letter of the name, the same fallback the feed uses.
+                        <View style={[styles.avatar, styles.avatarFallback]}>
+                            <Text style={styles.avatarLetter}>
+                                {(name ?? '?').charAt(0).toUpperCase()}
+                            </Text>
+                        </View>
+                    )}
                     <View style={styles.addBadge}>
                         <Ionicons name="add" size={14} color={Colors.onPrimary} />
                     </View>
                 </View>
 
+                {/* `posts` is real — it's just the length of the array we fetched, so
+                    it can never drift from the grid. followers/following stay 0 until
+                    a `follows` table exists. */}
                 <View style={styles.statsRow}>
-                    <Stat value={posts} label="posts" />
-                    <Stat value={followers} label="followers" />
-                    <Stat value={following} label="following" />
+                    <Stat value={postCount} label="posts" />
+                    <Stat value={0} label="followers" />
+                    <Stat value={0} label="following" />
                 </View>
             </View>
 
-            {/* Name + bio (full width) */}
-            <Text style={styles.nameText}>{name}</Text>
-            <Text style={styles.bioText}>{bio}</Text>
+            {/* Name + bio (full width). Skip the bio line entirely when it's null —
+                an empty grey row reads as a bug. */}
+            <Text style={styles.nameText}>{name ?? ''}</Text>
+            {bio ? <Text style={styles.bioText}>{bio}</Text> : null}
 
             {/* Action buttons */}
             <View style={styles.actionRow}>
@@ -96,22 +120,90 @@ const ProfileDetails = ({ profileData }: { profileData?: ProfileData }) => {
 };
 
 const ProfilePage = () => {
-    // Dummy data for now — later this comes from Supabase.
-    const profileData: ProfileData = {
-        username: 'mohit.gujarati',
-        name: 'Mohit Gujarati',
-        avatarUrl: 'https://i.pravatar.cc/300?img=12', // working placeholder avatar
-        posts: 3,
-        followers: 367,
-        following: 376,
-        bio: 'New York 📍✨\nDebugging the mysteries of the universe 🌌',
-    };
+    const { user } = useAuth();
+    const [profile, setProfile] = useState<ProfileData | null>(null);
+    const [posts, setPosts] = useState<PostItem[]>([]);
+    const [products, setProducts] = useState<ProductItem[]>([]);
+    const [loading, setLoading] = useState(true);
+
+    const loadProfile = useCallback(async () => {
+        if (!user) return;
+
+        // All three requests are independent, so fire them together and wait once.
+        // Three sequential awaits would mean three round-trips (~600ms on mobile
+        // data) for data that could have arrived in one.
+        const [profileRes, postsRes, productsRes] = await Promise.all([
+            // On `profiles` the primary key IS the user id (profiles.id === auth
+            // user id), so we filter on `id` — not `user_id` like posts/products.
+            // .single() returns ONE object instead of an array of one, and errors
+            // if there isn't exactly one row — which would mean the signup trigger
+            // in profiles.sql never fired, a real bug worth seeing.
+            supabase
+                .from('profiles')
+                .select('name, username, avatar_url, bio')
+                .eq('id', user.id)
+                .single(),
+
+            // NOTE: the read policy on posts is `using (true)` — the database will
+            // happily return EVERYONE's posts. Narrowing to this user is the app's
+            // job, via .eq(). RLS guards writes; these reads are open by design.
+            supabase
+                .from('posts')
+                .select('id, image_url, created_at')
+                .eq('user_id', user.id)
+                .order('created_at', { ascending: false }),
+
+            // Products live in their own table with their own columns (title,
+            // price) — that's what keeps the two tabs genuinely separate.
+            supabase
+                .from('products')
+                .select('id, image_url, title, price, created_at')
+                .eq('user_id', user.id)
+                .order('created_at', { ascending: false }),
+        ]);
+
+        if (profileRes.error) {
+            console.warn('Could not load profile:', profileRes.error.message);
+        } else {
+            setProfile(profileRes.data);
+        }
+
+        // `?? []` matters: on error `data` is null, and a null would crash the
+        // FlatList in step 3. An empty array just renders the empty state.
+        if (postsRes.error) console.warn('Could not load posts:', postsRes.error.message);
+        setPosts(postsRes.data ?? []);
+
+        if (productsRes.error) console.warn('Could not load products:', productsRes.error.message);
+        setProducts(productsRes.data ?? []);
+
+        setLoading(false);
+    }, [user?.id]);
+
+    // Tab screens stay mounted, so useEffect would run once and never again.
+    // useFocusEffect refetches every time you come back to this tab — same
+    // reasoning as HomeFeed.tsx.
+    useFocusEffect(
+        useCallback(() => {
+            loadProfile();
+        }, [loadProfile]),
+    );
+
+    if (loading) {
+        return (
+            <View style={[styles.page, styles.centered]}>
+                <ActivityIndicator color={Colors.primary} />
+            </View>
+        );
+    }
+
+    // Handle falls back to the display name until onboarding sets a username.
+    const handle = profile?.username ?? profile?.name ?? 'shopcircle';
 
     return (
         <View style={styles.page}>
-            <TopBar username={profileData.username} />
-            <ProfileDetails profileData={profileData} />
-            <ProfileTabs />
+            <TopBar username={handle} />
+            <ProfileDetails profileData={profile} postCount={posts.length} />
+            <ProfileTabs posts={posts} products={products} />
         </View>
     );
 };
@@ -120,6 +212,10 @@ const styles = StyleSheet.create({
     page: {
         flex: 1,
         backgroundColor: Colors.background,
+    },
+    centered: {
+        alignItems: 'center',
+        justifyContent: 'center',
     },
 
     // TopBar
@@ -158,6 +254,15 @@ const styles = StyleSheet.create({
         height: 84,
         borderRadius: Radius.full,
         backgroundColor: Colors.surfaceMuted,
+    },
+    avatarFallback: {
+        alignItems: 'center',
+        justifyContent: 'center',
+    },
+    avatarLetter: {
+        ...Typography.headlineMd,
+        fontSize: 32,
+        color: Colors.textSecondary,
     },
     addBadge: {
         position: 'absolute',
