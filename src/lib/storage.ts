@@ -2,12 +2,20 @@ import { supabase } from '@/lib/supabase';
 
 const BUCKET = 'user-media';
 
+// Must match the folder list in the storage RLS policy (supabase/storage.sql),
+// or the upload is rejected. A union type means a typo fails to compile instead
+// of failing at runtime.
+type Folder = 'posts' | 'products' | 'avatars';
+
 export async function uploadImage(
     localUri: string,
-    folder: 'posts' | 'avatars',
+    folder: Folder,
     userId: string,
+    // Two photos picked in the same millisecond would otherwise get the same
+    // filename and the second would 409. The index makes each path unique.
+    index = 0,
 ): Promise<string> {
-    const filename = `${Date.now()}.jpg`;
+    const filename = `${Date.now()}-${index}.jpg`;
     const path = `${folder}/${userId}/${filename}`;
 
     // Read the local file into raw bytes. Passing `localUri` straight to upload()
@@ -25,4 +33,22 @@ export async function uploadImage(
 
     // Synchronous — just builds the URL string, no network call, never errors.
     return supabase.storage.from(BUCKET).getPublicUrl(path).data.publicUrl;
+}
+
+/**
+ * Upload several photos and get their public URLs back IN THE SAME ORDER.
+ *
+ * Promise.all uploads them in parallel (one round trip instead of N sequential
+ * ones) and — unlike a race — resolves to an array in the order the promises
+ * were created, which is what keeps images[0] the cover photo the user chose.
+ *
+ * If any upload rejects, the whole thing rejects: the caller's try/catch then
+ * skips the insert, so a post can't end up with half its photos.
+ */
+export async function uploadImages(
+    localUris: string[],
+    folder: Folder,
+    userId: string,
+): Promise<string[]> {
+    return Promise.all(localUris.map((uri, i) => uploadImage(uri, folder, userId, i)));
 }

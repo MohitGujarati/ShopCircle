@@ -1,5 +1,6 @@
 import { useState } from "react";
 import { StatusBar } from "expo-status-bar";
+import { useLocalSearchParams } from "expo-router";
 
 import CameraScreen from "@/components/camera/CameraScreen";
 import PhotoPreview from "@/components/camera/PhotoPreview";
@@ -17,10 +18,16 @@ import { replaceWithParams, Routes } from "@/app/navigation/nav";
 export default function CameraRoute() {
     const [photoUri, setPhotoUri] = useState<string | null>(null);
 
+    // Where the photo should go when the user taps Post. The Product tab opens the
+    // camera with ?returnTo=/create/product-tab; the header camera icon passes
+    // nothing, so the Post tab stays the default.
+    const { returnTo } = useLocalSearchParams<{ returnTo?: string }>();
+    const destination = returnTo ?? Routes.CREATE_POST;
+
     // Hand the photo to the create form, which reads it with useLocalSearchParams().
     // `replace`, not `navigate`: once the photo is posted, pressing back should go
     // to wherever you opened the camera from — not back into the camera.
-    const postPhoto = () => replaceWithParams(Routes.CREATE_POST, { photoUri });
+    const postPhoto = () => replaceWithParams(destination, { photoUri });
 
     return (
         <>

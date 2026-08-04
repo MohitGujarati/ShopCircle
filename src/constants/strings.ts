@@ -90,6 +90,9 @@ export const Strings = {
     share: "Share",
     reviews: "reviews", // e.g. `${count} ${Strings.product.reviews}`
     outOfStock: "Out of stock",
+    // Social proof on a product card.
+    trending: "Trending",
+    interested: "interested", // e.g. `${count} ${Strings.product.interested}`
   },
 
   // Creator / user profile screen.
@@ -116,10 +119,46 @@ export const Strings = {
       product: "Product",
     },
     productName: "Product name",
+    productNamePlaceholder: "e.g. Handmade ceramic mug",
     price: "Price",
+    pricePlaceholder: "0.00",
     description: "Description",
+    descriptionPlaceholder: "Material, size, what makes it special…",
     addPhoto: "Add photo",
+    addProductPhoto: "Add a product photo",
+    changePhoto: "Change photo",
+
+    // Photo strip (PhotoPicker).
+    gallery: "Gallery",
+    camera: "Camera",
+    cover: "Cover",
+    firstPhotoIsCover: "First photo is the cover",
+    tooManyPhotos: "That's enough photos",
+    libraryPermissionTitle: "Photo access needed",
+    libraryPermissionBody: "ShopCircle needs access to your photos to add them to a post.",
     publish: "Publish",
+    publishing: "Publishing…",
+
+    // Chip groups on the Add product form.
+    category: "Category",
+    categories: {
+      fashion: "Fashion",
+      tech: "Tech",
+      home: "Home",
+      beauty: "Beauty",
+      other: "Other",
+    },
+    condition: "Condition",
+    conditions: {
+      new: "New",
+      used: "Used",
+    },
+    location: "Location",
+    locationPlaceholder: "City, State",
+
+    // Marks the fields you can't publish without.
+    required: "*",
+    requiredHint: "* required",
   },
 
   // Full-screen camera opened from the header camera icon.

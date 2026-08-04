@@ -1,12 +1,13 @@
-import { replace, Routes } from '@/app/navigation/nav';
+import { navigateWithParams, replace, Routes } from '@/app/navigation/nav';
+import PhotoPicker from '@/components/create/PhotoPicker';
 import { Strings } from '@/constants/strings';
 import { Colors, Radius, Spacing, Typography } from '@/constants/theme';
 import { useAuth } from '@/hooks/useAuth';
-import { uploadImage } from '@/lib/storage';
+import { uploadImages } from '@/lib/storage';
 import { supabase } from '@/lib/supabase';
 import { Feather, Ionicons, MaterialIcons } from '@expo/vector-icons';
 import { Image } from 'expo-image';
-import React, { useState } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import {
     ActivityIndicator,
     Alert,
@@ -97,10 +98,24 @@ export default function PostAdd({ photoUri }: Props) {
     // network request is in flight (avoids double-posting on a fast double tap).
     const [saving, setSaving] = useState(false);
 
-    // Insert one row into the `posts` table (see supabase/posts_products.sql).
-    // We only send the fields the user filled in; the DB fills id, user_id,
-    // and created_at for us via its column defaults.
+    // The photos to publish. Seeded from the camera's route param, then grown by
+    // the gallery picker.
+    const [photos, setPhotos] = useState<string[]>(photoUri ? [photoUri] : []);
 
+    // Coming back from the camera re-renders this screen with a NEW photoUri
+    // param while the component stays mounted. The ref remembers which param we
+    // already consumed, so the effect appends each photo exactly once instead of
+    // on every render.
+    const lastParam = useRef(photoUri);
+    useEffect(() => {
+        if (photoUri && photoUri !== lastParam.current) {
+            lastParam.current = photoUri;
+            setPhotos((prev) => (prev.includes(photoUri) ? prev : [...prev, photoUri]));
+        }
+    }, [photoUri]);
+
+    const openCamera = () =>
+        navigateWithParams(Routes.CAMERA, { returnTo: Routes.CREATE_POST });
 
     const handleShare = async () => {
         if (saving) return;
@@ -109,7 +124,7 @@ export default function PostAdd({ photoUri }: Props) {
             Alert.alert("Not signed in", "Please log in before sharing a post.");
             return;
         }
-        if (!photoUri) {
+        if (photos.length === 0) {
             Alert.alert("Add a photo", "Pick or take a photo before sharing.");
             return;
         }
@@ -118,13 +133,14 @@ export default function PostAdd({ photoUri }: Props) {
         try {
             // Upload FIRST: if this fails we never write a post row, so we can't end
             // up with a post pointing at an image that doesn't exist.
-            const imageUrl = await uploadImage(photoUri, "posts", user.id);
+            const imageUrls = await uploadImages(photos, "posts", user.id);
 
             // .insert() writes the row; RLS on the table verifies user_id === auth.uid().
             const { error } = await supabase.from("posts").insert({
-                // The public Storage URL, not the local file:// path — that's what
-                // makes the photo visible on every device.
-                image_url: imageUrl,
+                // images[] holds them all; image_url keeps the cover photo so the
+                // profile grid and older code paths still work.
+                images: imageUrls,
+                image_url: imageUrls[0],
                 caption: caption.trim(),
                 ai_label: isAiLabelEnabled,
                 // audience is hardcoded for now — the "Audience" menu row isn't wired up yet.
@@ -134,6 +150,7 @@ export default function PostAdd({ photoUri }: Props) {
 
             setCaption("");
             setIsAiLabelEnabled(false);
+            setPhotos([]);
             replace(Routes.HOME);
 
             // ToastAndroid exists only on Android; calling it elsewhere throws.
@@ -154,29 +171,23 @@ export default function PostAdd({ photoUri }: Props) {
         <SafeAreaView style={styles.safeArea}>
             <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={styles.scrollContent}>
 
-                {/* IMAGE PREVIEW OR PLACEHOLDER */}
+                {/* COVER PREVIEW — the first photo is what the feed shows. */}
                 <View style={styles.imageWrapper}>
-                    {photoUri ? (
-                        <Image source={{ uri: photoUri }} style={[
-                            styles.photo,
-                            {
-                                width: "100%",
-                                maxWidth: 500,
-                                alignSelf: "center",
-                            },
-                        ]} contentFit="cover" />
+                    {photos.length > 0 ? (
+                        <Image
+                            source={{ uri: photos[0] }}
+                            style={[styles.photo, { width: "100%", maxWidth: 500, alignSelf: "center" }]}
+                            contentFit="cover"
+                        />
                     ) : (
-                        <View style={[
-                            styles.photo,
-                            {
-                                width: "100%",
-                                maxWidth: 500,
-                                alignSelf: "center",
-                            },
-                        ]}      >
+                        <View
+                            style={[styles.photo, { width: "100%", maxWidth: 500, alignSelf: "center" }]}
+                        >
                             <Text style={styles.placeholderText}>{Strings.create.addPhoto}</Text>
                         </View>
                     )}
+
+                    <PhotoPicker photos={photos} onChange={setPhotos} onOpenCamera={openCamera} />
                 </View>
 
                 {/* CAPTION INPUT */}

@@ -8,6 +8,7 @@
 --
 -- Path convention these policies enforce:
 --     posts/<user-id>/<timestamp>.jpg
+--     products/<user-id>/<timestamp>.jpg
 --     avatars/<user-id>/<timestamp>.jpg
 --
 -- storage.foldername(name) splits the path into an array (1-indexed), so
@@ -28,7 +29,7 @@ create policy "user_media_insert_own"
   to authenticated
   with check (
     bucket_id = 'user-media'
-    and (storage.foldername(name))[1] in ('posts', 'avatars')
+    and (storage.foldername(name))[1] in ('posts', 'products', 'avatars')
     and (storage.foldername(name))[2] = auth.uid()::text
   );
 

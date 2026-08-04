@@ -5,8 +5,10 @@ export const Routes = {
     // the auth gate that decides between /home and /login.
     HOME: '/home',
     CREATE: '/create',
-    // The Post tab specifically — a photo from the camera lands here.
+    // The two Create tabs specifically. A photo from the camera lands on
+    // whichever one opened it (see camera.tsx `returnTo`).
     CREATE_POST: '/create/post-tab',
+    CREATE_PRODUCT: '/create/product-tab',
     PROFILE: '/profile',
     // Lives outside (tabs)/ so it covers the tab bar when open.
     CAMERA: '/camera',
