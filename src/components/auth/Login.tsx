@@ -1,7 +1,8 @@
 import { navigate, replace, Routes } from "@/app/navigation/nav";
 import { Strings } from "@/constants/strings";
-import { useAuth } from "@/hooks/useAuth";
 import { Colors, Typography } from "@/constants/theme";
+import { useAuth } from "@/hooks/useAuth";
+import { supabase } from "@/lib/supabase";
 import { useState } from "react";
 import { Dimensions, Text, View } from "react-native";
 import {
@@ -16,10 +17,11 @@ import {
 const { width } = Dimensions.get("window");
 
 const Login = () => {
-    const { signIn } = useAuth();
+    const { signIn, signInWithGoogle, linkError } = useAuth();
 
-    // Controlled form: React state holds what the user types.
-    const [email, setEmail] = useState("");
+    // Either an email or a username — useAuth.signIn resolves a handle to the
+    // account's email before calling Supabase.
+    const [identifier, setIdentifier] = useState("");
     const [password, setPassword] = useState("");
     // UI state: `loading` blocks double-submits; `errorMsg` shows failures.
     const [loading, setLoading] = useState(false);
@@ -30,13 +32,13 @@ const Login = () => {
         setErrorMsg(null);
 
         // Cheap client-side check before we bother the server.
-        if (!email.trim() || !password) {
+        if (!identifier.trim() || !password) {
             setErrorMsg(Strings.auth.fillAllFields);
             return;
         }
 
         setLoading(true);
-        const { error } = await signIn(email.trim(), password);
+        const { error } = await signIn(identifier.trim(), password);
         setLoading(false);
 
         if (error) {
@@ -47,6 +49,23 @@ const Login = () => {
         // gate that redirects to Home only runs at "/", and we're on /login, so
         // it isn't mounted to do it for us. `replace` so Back can't return here.
         replace(Routes.HOME);
+    };
+
+    const handleGoogle = async () => {
+        if (loading) return;
+        setErrorMsg(null);
+        setLoading(true);
+        const { error } = await signInWithGoogle();
+        setLoading(false);
+
+        if (error) {
+            setErrorMsg(error);
+            return;
+        }
+        // No error and no session means the user closed the Google page — stay
+        // here silently rather than announcing a failure they caused on purpose.
+        const { data } = await supabase.auth.getSession();
+        if (data.session) replace(Routes.HOME);
     };
 
     return (
@@ -63,12 +82,15 @@ const Login = () => {
                 }
             >
                 <AuthField
-                    label={Strings.auth.email}
+                    label={Strings.auth.emailOrUserNamePlaceholder}
                     placeholder={Strings.auth.emailPlaceholder}
-                    keyboardType="email-address"
-                    autoComplete="email"
-                    value={email}
-                    onChangeText={setEmail}
+                    // Not keyboardType="email-address": that keyboard pushes the
+                    // "@" and ".com" keys, which is wrong half the time now.
+                    autoComplete="username"
+                    autoCapitalize="none"
+                    autoCorrect={false}
+                    value={identifier}
+                    onChangeText={setIdentifier}
                 />
                 <AuthField
                     label={Strings.auth.password}
@@ -79,9 +101,11 @@ const Login = () => {
                     onChangeText={setPassword}
                 />
 
-                {errorMsg ? (
+                {/* An expired/used email link lands here rather than in the app,
+                    so this is where that failure has to be explained. */}
+                {errorMsg ?? linkError ? (
                     <Text style={{ ...Typography.bodySm, color: Colors.error }}>
-                        {errorMsg}
+                        {errorMsg ?? linkError}
                     </Text>
                 ) : null}
 
@@ -90,8 +114,10 @@ const Login = () => {
                     onPress={handleSignIn}
                 />
                 <OrDivider label={Strings.auth.or} />
-                {/* Google auth is a later slice — inert for now. */}
-                <GoogleButton label={Strings.auth.continueWithGoogle} onPress={() => {}} />
+                <GoogleButton
+                    label={Strings.auth.continueWithGoogle}
+                    onPress={handleGoogle}
+                />
             </AuthScreen>
         </View>
     );

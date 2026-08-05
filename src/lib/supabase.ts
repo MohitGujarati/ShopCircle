@@ -7,7 +7,7 @@ import 'react-native-url-polyfill/auto';
 
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { createClient } from '@supabase/supabase-js';
-import { AppState } from 'react-native';
+import { AppState, Platform } from 'react-native';
 
 // Expo inlines any variable prefixed with EXPO_PUBLIC_ at build time.
 const supabaseUrl = process.env.EXPO_PUBLIC_SUPABASE_URL;
@@ -27,8 +27,10 @@ export const supabase = createClient(supabaseUrl, supabaseAnonKey, {
     storage: AsyncStorage,
     autoRefreshToken: true,
     persistSession: true,
-    // detectSessionInUrl is a web-OAuth-redirect feature; off for React Native.
-    detectSessionInUrl: false,
+    // Only meaningful on web: after Google redirects the page back, the session
+    // is in the URL and this reads it automatically. On native there is no page
+    // URL — the deep-link handler in useAuth does that job instead.
+    detectSessionInUrl: Platform.OS === 'web',
   },
 });
 

@@ -195,6 +195,14 @@ export const Strings = {
 
     // Inline validation / error messages.
     fillAllFields: "Please enter your email and password.",
+    fillAllSignUpFields: "Please fill in every field.",
+    invalidEmail: "That doesn't look like an email address.",
+    invalidUsername: "3–20 characters: letters, numbers and _ only.",
+    usernameTaken: "That username is taken.",
+    passwordTooShort: "Password must be at least 6 characters.",
+    creatingAccount: "Creating account…",
+    checkEmail: "Almost there — check your inbox to confirm your address.",
+    usernameHint: "This is your @handle. You can't change it later.",
 
     // Registration screen.
     registerTitle: "Create your account",
@@ -205,8 +213,11 @@ export const Strings = {
     // Shared field labels / placeholders.
     name: "Name",
     namePlaceholder: "Jane Doe",
+    setUserNamePlaceholder: "Username",
+    userNamePlaceholder: "Username",
     email: "Email",
-    emailPlaceholder: "you@example.com",
+    emailPlaceholder: "Enter your email or username",
+    emailOrUserNamePlaceholder: "Email or Username",
     password: "Password",
     passwordPlaceholder: "••••••••",
 
