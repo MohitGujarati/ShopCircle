@@ -5,10 +5,14 @@ export const Routes = {
     // the auth gate that decides between /home and /login.
     HOME: '/home',
     CREATE: '/create',
-    // The two Create tabs specifically. A photo from the camera lands on
-    // whichever one opened it (see camera.tsx `returnTo`).
-    CREATE_POST: '/create/post-tab',
-    CREATE_PRODUCT: '/create/product-tab',
+    // Create is ONE screen now — posting and selling are the same form, split
+    // by a toggle inside it. These two aliases stay so older links (and the
+    // camera's `returnTo`) keep resolving somewhere valid.
+    CREATE_POST: '/create',
+    CREATE_PRODUCT: '/create',
+    // Browsing posts vs products IS two screens, so the top tabs moved here.
+    EXPLORE_POSTS: '/explore/post-tab',
+    EXPLORE_PRODUCTS: '/explore/product-tab',
     PROFILE: '/profile',
     // Lives outside (tabs)/ so it covers the tab bar when open.
     CAMERA: '/camera',

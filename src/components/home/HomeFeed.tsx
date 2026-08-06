@@ -1,3 +1,4 @@
+import { TRENDING_MIN_LIKES } from '@/constants/social';
 import { Strings } from '@/constants/strings';
 import { Colors, Radius, Spacing, Typography } from '@/constants/theme';
 import { useAuth } from '@/hooks/useAuth';
@@ -50,9 +51,6 @@ type ProductItem = FeedItemBase & {
     likedByMe: boolean;
 };
 
-// How many likes make a product "trending". An arbitrary line, but a visible
-// one: keep it here rather than buried in the card so it's easy to tune.
-const TRENDING_MIN_LIKES = 3;
 
 type FeedItem = PostItem | ProductItem;
 

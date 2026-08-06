@@ -72,6 +72,19 @@ export const Strings = {
   explore: {
     title: "Explore Ideas",
     searchPlaceholder: "Search products, stores, people…",
+    // Top tabs on the Explore screen.
+    tabs: {
+      posts: "Posts",
+      products: "Products",
+      people: "People",
+    },
+    searchPeoplePlaceholder: "Search by name or @username…",
+    accounts: "Accounts",
+    noResults: "Nothing matched that search.",
+    emptyPosts: "No posts yet.",
+    emptyProducts: "No products listed yet.",
+    emptyPeople: "No one to show yet.",
+    loadFailed: "Couldn't load. Pull to try again.",
     trending: "TRENDING",
     categories: {
       all: "All",
@@ -159,6 +172,32 @@ export const Strings = {
     // Marks the fields you can't publish without.
     required: "*",
     requiredHint: "* required",
+
+    // The single create form: one screen, product fields behind a toggle.
+    caption: "Caption",
+    captionPlaceholder: "Say something about this…",
+    share: "Share",
+    sharing: "Sharing…",
+    sell: "Sell this item",
+    sellHint: "Adds a price and product details so people can buy it.",
+    aiLabel: "Add AI label",
+    aiLabelHint: "Label realistic content that was made with AI.",
+
+    // Post-only rows. Everything here is UI only for now — the row exists so the
+    // screen looks finished, but nothing is wired to a table yet.
+    poll: "Poll",
+    prompt: "Prompt",
+    addAudio: "Add audio",
+    tagPeople: "Tag people",
+    addLocation: "Add location",
+    addLocationHint:
+      "People you share this with can see the location you tag and view this content on the map.",
+    audience: "Audience",
+    followers: "Followers",
+    alsoShareOn: "Also share on…",
+    off: "Off",
+    badgeNew: "New",
+    moreOptions: "More options",
   },
 
   // Full-screen camera opened from the header camera icon.
