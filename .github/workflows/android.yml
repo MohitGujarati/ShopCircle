@@ -1,0 +1,146 @@
+name: Android CI/CD
+
+# Runs on every push to main, and can be triggered by hand from the Actions tab
+# (useful while you're still getting the secrets right).
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+
+jobs:
+  # =================================================================
+  # JOB 1 — CHECKS. Fast (~2 min) and runs on everything, including
+  # pull requests. Nothing here needs a secret.
+  # =================================================================
+  check:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Set up Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm # caches ~/.npm between runs
+
+      # `npm ci`, not `npm install`: installs exactly what package-lock.json
+      # says, and fails loudly if the lockfile is out of sync.
+      - name: Install dependencies
+        run: npm ci
+
+      # This project's stand-in for unit tests, until there are some.
+      - name: Typecheck
+        run: npm run typecheck
+
+      - name: Lint
+        run: npm run lint
+
+  # =================================================================
+  # JOB 2 — BUILD + DISTRIBUTE. Only on main (or a manual run), and
+  # only if the checks passed.
+  #
+  # Skipped on pull requests on purpose: secrets aren't available to
+  # PRs from forks, so the keystore would decode to garbage and the
+  # build would fail for a reason that has nothing to do with the PR.
+  # =================================================================
+  build:
+    needs: check
+    if: github.event_name != 'pull_request'
+    runs-on: ubuntu-latest
+
+    steps:
+      # ---------------------------------------------------------------
+      # 1. ENVIRONMENT
+      # ---------------------------------------------------------------
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Set up Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+
+      - name: Set up JDK 17
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: 17 # RN 0.86 needs 17 — not 11
+
+      - name: Cache Gradle
+        uses: gradle/actions/setup-gradle@v4
+
+      - name: Install dependencies
+        run: npm ci
+
+      # ---------------------------------------------------------------
+      # 2. BUILD
+      # ---------------------------------------------------------------
+      # EXPO_PUBLIC_* variables are inlined into the JS bundle at build time,
+      # so they must exist as a file before the bundler runs. They live in
+      # GitHub Secrets to keep them out of the repo — they're still readable
+      # in the finished APK, which is fine: they're the anon and search-only
+      # keys, and RLS is what protects the data.
+      - name: Write .env
+        run: |
+          echo "EXPO_PUBLIC_SUPABASE_URL=${{ secrets.EXPO_PUBLIC_SUPABASE_URL }}" >> .env
+          echo "EXPO_PUBLIC_SUPABASE_ANON_KEY=${{ secrets.EXPO_PUBLIC_SUPABASE_ANON_KEY }}" >> .env
+          echo "EXPO_PUBLIC_ALGOLIA_APP_ID=${{ secrets.EXPO_PUBLIC_ALGOLIA_APP_ID }}" >> .env
+          echo "EXPO_PUBLIC_ALGOLIA_SEARCH_KEY=${{ secrets.EXPO_PUBLIC_ALGOLIA_SEARCH_KEY }}" >> .env
+          echo "EXPO_PUBLIC_ALGOLIA_PRODUCTS_INDEX=${{ secrets.EXPO_PUBLIC_ALGOLIA_PRODUCTS_INDEX }}" >> .env
+
+      # THE STEP THAT DOESN'T EXIST IN A NATIVE PROJECT.
+      # /android is git-ignored in an Expo app, so CI generates it from
+      # app.json + app.config.js. --no-install because npm ci already ran.
+      - name: Generate the native Android project
+        run: npx expo prebuild --platform android --no-install
+
+      - name: Make gradlew executable
+        run: chmod +x android/gradlew
+
+      # The keystore is stored as base64 because GitHub Secrets hold text,
+      # not files.
+      - name: Restore signing keystore
+        run: echo "${{ secrets.ANDROID_KEYSTORE_BASE64 }}" | base64 -d > android/app/release.keystore
+
+      # Signing is passed as Gradle properties rather than by editing
+      # build.gradle — prebuild regenerates that file, so any edit would be
+      # thrown away on the next run.
+      - name: Build release APK
+        working-directory: android
+        run: |
+          ./gradlew assembleRelease \
+            -Pandroid.injected.signing.store.file=$PWD/app/release.keystore \
+            -Pandroid.injected.signing.store.password="${{ secrets.ANDROID_KEYSTORE_PASSWORD }}" \
+            -Pandroid.injected.signing.key.alias="${{ secrets.ANDROID_KEY_ALIAS }}" \
+            -Pandroid.injected.signing.key.password="${{ secrets.ANDROID_KEY_PASSWORD }}"
+
+      # Downloadable from the Actions run page, even if the Firebase step is
+      # skipped or fails.
+      - name: Upload APK artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: shopcircle-apk
+          path: android/app/build/outputs/apk/release/app-release.apk
+
+      # ---------------------------------------------------------------
+      # 3. DISTRIBUTE
+      # ---------------------------------------------------------------
+      - name: Upload to Firebase App Distribution
+        uses: wzieba/Firebase-Distribution-Github-Action@v1
+        with:
+          appId: ${{ secrets.FIREBASE_APP_ID }}
+          # A service account, NOT the FIREBASE_TOKEN used in the older
+          # RecallAI setup — that method is deprecated.
+          serviceCredentialsFileContent: ${{ secrets.FIREBASE_SERVICE_ACCOUNT }}
+          groups: testers
+          file: android/app/build/outputs/apk/release/app-release.apk
+          # head_commit only exists on a push — a manual run would leave the
+          # notes blank without the fallback.
+          releaseNotes: |
+            ${{ github.event.head_commit.message || 'Manual build' }}
+
+            Build #${{ github.run_number }} · ${{ github.sha }}

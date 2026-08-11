@@ -1,6 +1,8 @@
+import { openProduct } from '@/app/navigation/nav';
 import PeopleResults from '@/components/explore/PeopleResults';
 import { TRENDING_MIN_LIKES } from '@/constants/social';
 import { INDEX, isAlgoliaReady, searchIndex } from '@/lib/algolia';
+import { formatPrice } from '@/lib/format';
 import { Strings } from '@/constants/strings';
 import { Colors, Radius, Spacing, Typography } from '@/constants/theme';
 import { supabase } from '@/lib/supabase';
@@ -14,6 +16,7 @@ import {
     StyleSheet,
     Text,
     TextInput,
+    TouchableOpacity,
     useWindowDimensions,
     View,
 } from 'react-native';
@@ -102,7 +105,6 @@ export default function ExploreGrid({ kind }: { kind: Kind }) {
 
     const load = useCallback(
         async (search: string) => {
-            setError(null);
             const term = search.trim();
 
             // TWO SOURCES, one for each job.
@@ -154,6 +156,10 @@ export default function ExploreGrid({ kind }: { kind: Kind }) {
 
                     setItems((data ?? []) as unknown as GridItem[]);
                 }
+                // Cleared here rather than at the top: a setState before the
+                // first await runs synchronously inside the effect, which
+                // cascades renders (and the lint rule flags it).
+                setError(null);
             } catch (e) {
                 setError(e instanceof Error ? e.message : String(e));
                 setItems([]);
@@ -173,6 +179,10 @@ export default function ExploreGrid({ kind }: { kind: Kind }) {
     // Every later fetch is something the user did on purpose: pull to refresh,
     // submit a search, or clear one.
     useEffect(() => {
+        // `load` is async — it awaits the network before any setState, so this is
+        // "subscribe to an external system", not the synchronous cascade the rule
+        // is about. The rule can't see past the function call.
+        // eslint-disable-next-line react-hooks/set-state-in-effect
         load('');
     }, [load]);
 
@@ -251,7 +261,13 @@ export default function ExploreGrid({ kind }: { kind: Kind }) {
                         ) : null
                     }
                     renderItem={({ item }) => (
-                        <View style={[styles.tile, { width: tileSize, height: tileSize }]}>
+                        // Products open their page; posts have no detail screen
+                        // yet, so `onPress` is undefined and the tile is inert.
+                        <TouchableOpacity
+                            style={[styles.tile, { width: tileSize, height: tileSize }]}
+                            activeOpacity={kind === 'product' ? 0.8 : 1}
+                            onPress={kind === 'product' ? () => openProduct(item.id) : undefined}
+                        >
                             {item.image_url ? (
                                 <Image
                                     source={{ uri: item.image_url }}
@@ -315,11 +331,11 @@ export default function ExploreGrid({ kind }: { kind: Kind }) {
                             {item.price !== undefined && (
                                 <View style={styles.pricePill}>
                                     <Text style={styles.priceText} numberOfLines={1}>
-                                        ₹{item.price}
+                                        {formatPrice(item.price)}
                                     </Text>
                                 </View>
                             )}
-                        </View>
+                        </TouchableOpacity>
                     )}
                     refreshControl={
                         <RefreshControl refreshing={refreshing} onRefresh={onRefresh} />

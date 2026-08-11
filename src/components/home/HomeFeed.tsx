@@ -1,7 +1,9 @@
+import { openProduct } from '@/app/navigation/nav';
 import { TRENDING_MIN_LIKES } from '@/constants/social';
 import { Strings } from '@/constants/strings';
 import { Colors, Radius, Spacing, Typography } from '@/constants/theme';
 import { useAuth } from '@/hooks/useAuth';
+import { formatPrice } from '@/lib/format';
 import { supabase } from '@/lib/supabase';
 import { Ionicons } from '@expo/vector-icons';
 import { Image } from 'expo-image';
@@ -299,7 +301,11 @@ const ProductCard = ({
                     onPress={onToggleLike}
                 />
                 <View style={styles.spacer} />
-                <TouchableOpacity style={styles.buyButton} activeOpacity={0.85}>
+                <TouchableOpacity
+                    style={styles.buyButton}
+                    activeOpacity={0.85}
+                    onPress={() => openProduct(product.id)}
+                >
                     <Text style={styles.buyText}>{Strings.common.buyNow}</Text>
                 </TouchableOpacity>
                 <IconButton name="bookmark-outline" />
@@ -317,7 +323,7 @@ const ProductCard = ({
                 </Text>
 
                 <View style={styles.priceLine}>
-                    <Text style={styles.productPrice}>₹{product.price}</Text>
+                    <Text style={styles.productPrice}>{formatPrice(product.price)}</Text>
                     {product.condition ? (
                         <Text style={styles.conditionText}>· {product.condition}</Text>
                     ) : null}

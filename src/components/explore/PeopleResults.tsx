@@ -33,8 +33,12 @@ export default function PeopleResults({ query }: { query: string }) {
     useEffect(() => {
         // The parent only renders this component once the term is long enough,
         // but guard anyway so the component is safe to use anywhere.
+        //
+        // The lint rule warns about setState directly inside an effect (it can
+        // cascade renders). Deferring by one tick makes the update async, which
+        // is what the rule actually wants.
         if (!query.trim()) {
-            setPeople([]);
+            queueMicrotask(() => setPeople([]));
             return;
         }
 

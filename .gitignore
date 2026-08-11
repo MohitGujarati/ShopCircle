@@ -33,6 +33,12 @@ yarn-error.*
 # local env files (SECRETS — Supabase & Stripe keys. Never commit these.)
 .env
 .env.*
+# ...but DO commit the template that documents which keys are needed.
+!.env.example
+# Signing material and Firebase service accounts never go in the repo.
+*.keystore
+google-services.json
+firebase-service-account*.json
 !.env.example
 
 # typescript
@@ -55,3 +61,7 @@ example
 # Claude local/personal working files (roadmap, design inspiration, etc.)
 .claude/*.local.*
 .claude/inspiration.local/
+
+# Release keystore & Firebase service account
+android/app/release.keystore
+shopecircle-9d8d1-firebase-adminsdk-*.json

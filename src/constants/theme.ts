@@ -52,6 +52,9 @@ export const Colors = {
   // Raw values, handy for one-off cases.
   black: "#000000",
   white: "#FFFFFF",
+  grey: "#CCCCCC",
+  darkgrey: "#666666",
+  lightgrey: "#F5F5F5",
 
 } as const;
 

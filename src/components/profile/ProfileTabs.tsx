@@ -1,5 +1,6 @@
 import { navigate, Routes } from '@/app/navigation/nav';
 import { Colors, Radius, Spacing, Typography } from '@/constants/theme';
+import { formatPrice } from '@/lib/format';
 import { Ionicons } from '@expo/vector-icons';
 import { useState } from 'react';
 import { Image } from 'expo-image';
@@ -84,7 +85,7 @@ const Tile = ({ item, size }: { item: PostItem | ProductItem; size: number }) =>
                 // Absolutely positioned inside the tile — same technique as the
                 // `addBadge` on the avatar in ProfilePage.
                 <View style={styles.pricePill}>
-                    <Text style={styles.priceText} numberOfLines={1}>₹{price}</Text>
+                    <Text style={styles.priceText} numberOfLines={1}>{formatPrice(price)}</Text>
                 </View>
             )}
         </View>

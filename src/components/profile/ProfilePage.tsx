@@ -177,6 +177,10 @@ const ProfilePage = () => {
         setProducts(productsRes.data ?? []);
 
         setLoading(false);
+        // Depend on the ID, not the whole `user` object: Supabase hands back a
+        // NEW object on every token refresh, so depending on it would refetch
+        // the profile every hour for no reason.
+        // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [user?.id]);
 
     // Tab screens stay mounted, so useEffect would run once and never again.

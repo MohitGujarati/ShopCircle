@@ -11,6 +11,7 @@ import {
 import { Strings } from '@/constants/strings';
 import { Colors, Radius, Spacing, Typography } from '@/constants/theme';
 import { useAuth } from '@/hooks/useAuth';
+import { CURRENCY } from '@/lib/format';
 import { uploadImages } from '@/lib/storage';
 import { supabase } from '@/lib/supabase';
 import { Image } from 'expo-image';
@@ -242,11 +243,12 @@ export default function CreateForm({ photoUri, initialSelling = false }: Props) 
                             maxLength={80}
                         />
 
-                        {/* The ₹ sits outside the input, so the user never types or
-                            deletes it and `price` stays a clean number string. */}
+                        {/* The currency sits outside the input, so the user never
+                            types or deletes it and `price` stays a clean number
+                            string ready for the numeric column. */}
                         <Field label={Strings.create.price} required>
                             <View style={styles.priceRow}>
-                                <Text style={styles.currency}>₹</Text>
+                                <Text style={styles.currency}>{CURRENCY}</Text>
                                 <TextInput
                                     style={styles.priceInput}
                                     placeholder={Strings.create.pricePlaceholder}

@@ -103,6 +103,12 @@ export const Strings = {
     share: "Share",
     reviews: "reviews", // e.g. `${count} ${Strings.product.reviews}`
     outOfStock: "Out of stock",
+    noReviews: "No reviews yet",
+    loadFailed: "Couldn't load this product.",
+    notFound: "This product no longer exists.",
+    // Checkout isn't built — these say so instead of pretending.
+    checkoutSoon: "Checkout isn't wired up yet.",
+    checkoutSoonBody: "Payments come later — for now this is just the listing.",
     // Social proof on a product card.
     trending: "Trending",
     interested: "interested", // e.g. `${count} ${Strings.product.interested}`

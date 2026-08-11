@@ -54,3 +54,9 @@ export function replace(to) {
 export function goBack() {
     router.back();
 }
+
+// Open one product's page. The id is part of the PATH, not a query param —
+// /product/abc-123 matches the dynamic route file app/product/[id].tsx.
+export function openProduct(id) {
+    router.navigate(`/product/${id}`);
+}

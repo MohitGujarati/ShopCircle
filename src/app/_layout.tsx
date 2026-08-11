@@ -41,6 +41,10 @@ export default function RootLayout() {
         {/* Pushed over the tabs, so it hides the bottom tab bar. Sliding up from
             the bottom is what makes it read as a camera rather than a page. */}
         <Stack.Screen name="camera" options={{ animation: "slide_from_bottom" }} />
+
+        {/* One product, opened from a Buy now button. The [id] segment is part
+            of the path — see app/product/[id].tsx. */}
+        <Stack.Screen name="product/[id]" />
       </Stack>
     </AuthProvider>
   );
