@@ -1,20 +1,17 @@
 name: Android CI/CD
 
-# Runs on every push to main, and can be triggered by hand from the Actions tab
-# (useful while you're still getting the secrets right).
 on:
   push:
-    branches: [main]
+    branches: ["**"]
   pull_request:
+    branches: ["main"]
   workflow_dispatch:
 
 jobs:
-  # =================================================================
-  # JOB 1 — CHECKS. Fast (~2 min) and runs on everything, including
-  # pull requests. Nothing here needs a secret.
-  # =================================================================
-  check:
+  build:
     runs-on: ubuntu-latest
+    permissions:
+      contents: read
 
     steps:
       - name: Checkout code
@@ -26,71 +23,82 @@ jobs:
           node-version: 20
           cache: npm # caches ~/.npm between runs
 
+      - name: Set up JDK 17
+        uses: actions/setup-java@v4
+        with:
+          java-version: '17' # RN 0.86 needs 17 — not 11
+          distribution: 'temurin'
+
+      # Done FIRST, before npm and prebuild, so a bad keystore fails in ~30
+      # seconds instead of 32 minutes into Gradle. It decodes to RUNNER_TEMP
+      # rather than android/app/ because android/ doesn't exist until prebuild.
+      #
+      # `tr -d` strips newlines a copy-paste may have added — a wrapped secret
+      # decodes to garbage, which Gradle then reports as a key alias error.
+      - name: Inject and verify signing keystore
+        env:
+          KEYSTORE_B64: ${{ secrets.ANDROID_KEYSTORE_BASE64 }}
+        run: |
+          echo "${KEYSTORE_B64}" | tr -d '[:space:]' | base64 --decode > "$RUNNER_TEMP/release.keystore"
+
+          echo "--- What is actually inside the keystore ---"
+          # No -alias here on purpose: this dumps EVERY entry. GitHub masks any
+          # text matching a secret, so read the output like this —
+          #   alias prints as ***          -> secret matches, look elsewhere
+          #   alias prints in plain text   -> ANDROID_KEY_ALIAS is wrong, and
+          #                                   the name you see is the right one
+          keytool -list -v \
+            -keystore "$RUNNER_TEMP/release.keystore" \
+            -storepass "${{ secrets.ANDROID_KEYSTORE_PASSWORD }}" \
+            | grep -E "Alias name|SHA256:" \
+            || { echo "::error::Keystore did not open at all — ANDROID_KEYSTORE_BASE64 is corrupt or ANDROID_KEYSTORE_PASSWORD is wrong."; exit 1; }
+
+          echo "--- Confirming ANDROID_KEY_ALIAS resolves ---"
+          keytool -list \
+            -keystore "$RUNNER_TEMP/release.keystore" \
+            -storepass "${{ secrets.ANDROID_KEYSTORE_PASSWORD }}" \
+            -alias "${{ secrets.ANDROID_KEY_ALIAS }}" \
+            || { echo "::error::ANDROID_KEY_ALIAS is not in this keystore. Compare it with the 'Alias name' printed above."; exit 1; }
+
       # `npm ci`, not `npm install`: installs exactly what package-lock.json
       # says, and fails loudly if the lockfile is out of sync.
       - name: Install dependencies
         run: npm ci
 
-      # This project's stand-in for unit tests, until there are some.
+      # This project's stand-in for the unit tests your other app runs.
       - name: Typecheck
         run: npm run typecheck
 
       - name: Lint
         run: npm run lint
 
-  # =================================================================
-  # JOB 2 — BUILD + DISTRIBUTE. Only on main (or a manual run), and
-  # only if the checks passed.
-  #
-  # Skipped on pull requests on purpose: secrets aren't available to
-  # PRs from forks, so the keystore would decode to garbage and the
-  # build would fail for a reason that has nothing to do with the PR.
-  # =================================================================
-  build:
-    needs: check
-    if: github.event_name != 'pull_request'
-    runs-on: ubuntu-latest
-
-    steps:
-      # ---------------------------------------------------------------
-      # 1. ENVIRONMENT
-      # ---------------------------------------------------------------
-      - name: Checkout code
-        uses: actions/checkout@v4
-
-      - name: Set up Node
-        uses: actions/setup-node@v4
-        with:
-          node-version: 20
-          cache: npm
-
-      - name: Set up JDK 17
-        uses: actions/setup-java@v4
-        with:
-          distribution: temurin
-          java-version: 17 # RN 0.86 needs 17 — not 11
-
-      - name: Cache Gradle
-        uses: gradle/actions/setup-gradle@v4
-
-      - name: Install dependencies
-        run: npm ci
-
-      # ---------------------------------------------------------------
-      # 2. BUILD
-      # ---------------------------------------------------------------
       # EXPO_PUBLIC_* variables are inlined into the JS bundle at build time,
-      # so they must exist as a file before the bundler runs. They live in
-      # GitHub Secrets to keep them out of the repo — they're still readable
-      # in the finished APK, which is fine: they're the anon and search-only
-      # keys, and RLS is what protects the data.
-      - name: Write .env
+      # so the file must exist before the bundler runs. This is the Expo
+      # equivalent of injecting keys into local.properties.
+      - name: Inject API keys into .env
+        env:
+          SUPABASE_URL: ${{ secrets.EXPO_PUBLIC_SUPABASE_URL }}
+          SUPABASE_ANON_KEY: ${{ secrets.EXPO_PUBLIC_SUPABASE_ANON_KEY }}
+          ALGOLIA_APP_ID: ${{ secrets.EXPO_PUBLIC_ALGOLIA_APP_ID }}
+          ALGOLIA_SEARCH_KEY: ${{ secrets.EXPO_PUBLIC_ALGOLIA_SEARCH_KEY }}
+          ALGOLIA_PRODUCTS_INDEX: ${{ secrets.EXPO_PUBLIC_ALGOLIA_PRODUCTS_INDEX }}
+          ALGOLIA_POSTS_INDEX: ${{ secrets.EXPO_PUBLIC_ALGOLIA_POSTS_INDEX }}
         run: |
-          echo "EXPO_PUBLIC_SUPABASE_URL=${{ secrets.EXPO_PUBLIC_SUPABASE_URL }}" >> .env
-          echo "EXPO_PUBLIC_SUPABASE_ANON_KEY=${{ secrets.EXPO_PUBLIC_SUPABASE_ANON_KEY }}" >> .env
-          echo "EXPO_PUBLIC_ALGOLIA_APP_ID=${{ secrets.EXPO_PUBLIC_ALGOLIA_APP_ID }}" >> .env
-          echo "EXPO_PUBLIC_ALGOLIA_SEARCH_KEY=${{ secrets.EXPO_PUBLIC_ALGOLIA_SEARCH_KEY }}" >> .env
-          echo "EXPO_PUBLIC_ALGOLIA_PRODUCTS_INDEX=${{ secrets.EXPO_PUBLIC_ALGOLIA_PRODUCTS_INDEX }}" >> .env
+          {
+            echo "EXPO_PUBLIC_SUPABASE_URL=${SUPABASE_URL}"
+            echo "EXPO_PUBLIC_SUPABASE_ANON_KEY=${SUPABASE_ANON_KEY}"
+            echo "EXPO_PUBLIC_ALGOLIA_APP_ID=${ALGOLIA_APP_ID}"
+            echo "EXPO_PUBLIC_ALGOLIA_SEARCH_KEY=${ALGOLIA_SEARCH_KEY}"
+            echo "EXPO_PUBLIC_ALGOLIA_PRODUCTS_INDEX=${ALGOLIA_PRODUCTS_INDEX}"
+            echo "EXPO_PUBLIC_ALGOLIA_POSTS_INDEX=${ALGOLIA_POSTS_INDEX}"
+          } >> .env
+
+          # A missing secret is an empty string, not an error — the build would
+          # otherwise succeed and ship an APK that can't reach Supabase.
+          if [ -z "${SUPABASE_URL}" ] || [ -z "${SUPABASE_ANON_KEY}" ]; then
+            echo "::error::Supabase secrets are missing. Check repo Settings → Secrets."
+            exit 1
+          fi
 
       # THE STEP THAT DOESN'T EXIST IN A NATIVE PROJECT.
       # /android is git-ignored in an Expo app, so CI generates it from
@@ -98,48 +106,44 @@ jobs:
       - name: Generate the native Android project
         run: npx expo prebuild --platform android --no-install
 
-      - name: Make gradlew executable
-        run: chmod +x android/gradlew
+      # After prebuild — there is no Gradle project to cache before it.
+      - name: Setup Gradle
+        uses: gradle/actions/setup-gradle@v4
 
-      # The keystore is stored as base64 because GitHub Secrets hold text,
-      # not files.
-      - name: Restore signing keystore
-        run: echo "${{ secrets.ANDROID_KEYSTORE_BASE64 }}" | base64 -d > android/app/release.keystore
+      - name: Grant execute permission for gradlew
+        run: chmod +x android/gradlew
 
       # Signing is passed as Gradle properties rather than by editing
       # build.gradle — prebuild regenerates that file, so any edit would be
-      # thrown away on the next run.
-      - name: Build release APK
+      # thrown away on the next run. The keystore path is the one verified at
+      # the top of this job.
+      - name: Build Release APK
         working-directory: android
         run: |
           ./gradlew assembleRelease \
-            -Pandroid.injected.signing.store.file=$PWD/app/release.keystore \
+            -Pandroid.injected.signing.store.file=$RUNNER_TEMP/release.keystore \
             -Pandroid.injected.signing.store.password="${{ secrets.ANDROID_KEYSTORE_PASSWORD }}" \
             -Pandroid.injected.signing.key.alias="${{ secrets.ANDROID_KEY_ALIAS }}" \
             -Pandroid.injected.signing.key.password="${{ secrets.ANDROID_KEY_PASSWORD }}"
 
-      # Downloadable from the Actions run page, even if the Firebase step is
-      # skipped or fails.
       - name: Upload APK artifact
         uses: actions/upload-artifact@v4
         with:
-          name: shopcircle-apk
+          name: app-release
           path: android/app/build/outputs/apk/release/app-release.apk
 
-      # ---------------------------------------------------------------
-      # 3. DISTRIBUTE
-      # ---------------------------------------------------------------
+      # Only main reaches your testers — every other branch still builds and
+      # leaves a downloadable APK above. (Your other app used stable1.0.)
       - name: Upload to Firebase App Distribution
+        if: github.ref == 'refs/heads/main'
         uses: wzieba/Firebase-Distribution-Github-Action@v1
         with:
           appId: ${{ secrets.FIREBASE_APP_ID }}
-          # A service account, NOT the FIREBASE_TOKEN used in the older
-          # RecallAI setup — that method is deprecated.
+          # A service account, NOT the FIREBASE_TOKEN your other app uses —
+          # that method is deprecated and tied to a personal Google account.
           serviceCredentialsFileContent: ${{ secrets.FIREBASE_SERVICE_ACCOUNT }}
           groups: testers
           file: android/app/build/outputs/apk/release/app-release.apk
-          # head_commit only exists on a push — a manual run would leave the
-          # notes blank without the fallback.
           releaseNotes: |
             ${{ github.event.head_commit.message || 'Manual build' }}
 
